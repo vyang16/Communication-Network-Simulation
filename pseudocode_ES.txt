@@ -1,0 +1,172 @@
+//////////////////////////SYSTEM VARIABLES//////////////////////////////////////
+
+//Costants and Setting Options
+
+int NR_REP = 1000; //simulation reps
+int NR_CALLS_PER_REP = 100; //number of reps per simulation cycle
+boolean warmup = true; //include warmup period or not
+int NR_WARMUP = 300;  //warmup period, needs to be smaller than NR_CALLS_PER_REP
+int NR_STATIONS = 20; //number of stations
+int NR_STATION_HANDOVER = 0; //[0,10]
+float ST_DIAM = 2000.0; //station diameter
+
+
+List eventList; //events must be added in order of their event time
+float clock;
+
+int blockedCallsCounter;
+int droppedCallsCounter;
+int totalCallsCounter;
+int endedCallsCounter;
+
+//Need to keep track of how many basestations are free
+int baseStations[] = new int[NR_STATIONS];
+
+//Read in data from the given XLS file
+Dataframe data;
+int datapointer;
+
+
+////////////////////////EVENT HANDELING ROUTINES////////////////////////////////
+
+function CallInitiationEvent( float time, float speed, int station,
+                              float position, float duration,
+                              boolean direction){
+  totalCallsCounter ++;
+
+  //Reset variables after warmup period
+  if(totalCallsCounter == NR_WARMUP && warmup){
+    warmup = false;
+    totalCallsCounter = 0;
+    blockedCallsCounter = 0;
+    droppedCallsCounter = 0;
+  }
+  //need to reservate lines for handover
+  if(baseStations[station] > NR_STATION_HANDOVER){
+    Event e = new Event();
+    baseStations[station]--;
+    //decide next station
+    nextStation = calculateNextStation(station, direction);
+    //let position be the distance to the boarder the car is driving to
+    timeToSwitchLines = min((position*3.6)/speed, duration);
+
+    if(timeToSwitchLines==duration || nextStation>=NR_LINES || nextStation<0){
+      //Call ended in cell it has started, no handover
+      event.type = TERMINATION;
+      event.station = station;
+    }else{
+      //need Handover
+      event.type = HANDOVER;
+      event.speed = speed;
+      event.station = nextStation;
+      event.duration = duration - timeToSwitchLines;
+      event.direction = direction;
+    }
+    event.time = time + timeToSwitchLines;
+    eventList.add(event);
+  }else{
+    blockedCallsCounter++;
+  }
+}
+
+//time is handled by Event class
+function CallTerminationEvent(int station){
+  baseStations[station]++; //release one line
+}
+
+function HandOverEvent( float time,float speed, int station, float duration,
+                        boolean direction){
+  //release previous station
+  previousStation = calculateNextStation(!direction);
+  baseStation[previousStation]++;
+
+  if(baseStations[station] > 0){
+    Event e = new Event();
+    baseStations[station]--;
+    nextStation  = calculateNextStation(station, direction);
+    timeToSwitchLines = min(duration, ST_DIAM*3.6/(speed));
+
+    if(timeToSwitchLines > duration){
+      event.speed = speed;
+      event.station = nextStation;
+      event.duration = duration - timeToSwitchLines;
+      event.direction = direction;
+    }else{
+      event.station = station;
+    }
+    event.time = time + timeToSwitchLines;
+    eventList.add(e);
+  }else{
+    //drop call
+    droppedCallsCounter++;
+  }
+
+}
+//////////////////////////INITIALIZAZION////////////////////////////////////////
+function init(){
+  clock = 0.0;
+  eventList = new EventList();
+  blockedCallsCounter = 0;
+  droppedCallsCounter = 0;
+  totalCallsCounter = 0;
+  endedCallsCounter = 0;
+  for(int i = 0; i < NR_STATIONS; i++){
+    baseStations[i] = 10;
+  }
+  datapointer = 0;
+  data = PCS_TEST_DETERMINISTIC_1819S2.xls;
+}
+
+////////////////////////////MAIN FUNCTION///////////////////////////////////////
+
+function main(){
+  //Simulation needs to be run multiple times
+  for(int j  = 0; j < NR_REP; j++){
+    init();
+    //generate random variables for CallInitiation
+    boolean direction;
+    float position;
+    //each run has NR_CALLS_PER_REP reps
+    for(int i  = 0; i < NR_CALLS_PER_REP; i++){
+      if(Random(0,1) < 0.5){ //random is a uniform distribution of values [0,1]
+        direction = true;
+      }else{
+        direction = false;
+      }
+      position = 2000.0*Random(0,1);
+      eventList.addCallInitiationEvents(datapointer, direction, position);
+      datapointer++;
+    }
+
+    //main part of the main function is to process the event list
+    while(eventList.notEmpty()){
+      Event e = eventList.fetch();
+      handleEvent(e);
+    }
+
+    //Add statistical report in a list
+    blockedCallsPercentage = blockedCallsCounter / (NR_REP-NR_WARMUP);
+    droppedCallsCounter = droppedCallsCounter / (NR_REP-NR_WARMUP);
+    p = package(j, blockedCallsPercentage, droppedCallsPercentage);
+    percentageList.push(p);
+  }
+  //Analyze percentageList, mean, confidence interval etc.
+  //Make some plots or write data to a file.
+}
+
+function handleEvent(Event event){
+  clock = event.time //jump to next discrete time
+  switch(event.type){
+    case INITIATION:
+      CallInitiationEvent(event.time, event.speed, event.station,
+                          event.position, event.duration. event.directioni);
+      break;
+    case HANDOVER:
+      HandoverEvent(event.time, event.speed, event.station, event.duration,
+                    event.direction);
+      break;
+    case TERMINATION:
+      CallTerminationEvent(event.time, event.station);
+      break;
+  }
+}

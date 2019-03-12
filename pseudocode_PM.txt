@@ -1,0 +1,96 @@
+//////////////////////////SYSTEM VARIABLES//////////////////////////////////////
+
+//Costants and Setting Options
+
+int NR_REP = 1000; //simulation reps
+int NR_CALLS_PER_REP = 100; //number of reps per simulation cycle
+int NR_STATIONS = 20; //number of stations
+float ST_DIAM = 2000.0; //station diameter
+
+float clock;
+
+int blockedCallsCounter;
+int droppedCallsCounter;
+int totalCallsCounter;
+
+
+//Need to keep track of how many channels at the specified basestation are free
+int freeChannels =  new int[NR_STATIONS];
+
+//spawn in basestation follows probability distribution X
+//position follows probability distribution Y
+//duration of the call follows probability distribution Z
+
+public void init(){
+	for(int i = 0; i < NR_STATIONS; i++){
+		freeChannels[i] = 10;
+	}
+}
+
+public void Main(){
+	init();
+
+	for(int i = 0; i < NR_CALLS_PER_REP; i++){
+		Caller c = new Caller(random("X"), random("B"), random("Y"), random(0,ST_DIAM), random("Z"));
+		c.run();
+	}
+}
+
+public class Caller(){
+	//Process variables
+	private int baseStation;
+	private int direction;
+	private float speed;
+	private float position;
+	private float duration;
+
+	public Caller(int bs, int dir, float sp, float pos, float dur){
+		this(bs, dir, sp, pos, dur);
+	}
+
+	public void run(){
+		float T;
+		int nextStation;
+		//generates variables
+		public void spawn(){
+
+		}
+
+		totalCallsCounter++;
+		//no channel is free when the caller wants to call -> call blocked
+		if(freeChannels[baseStation] == 0){
+			blockedCallsCounter++;
+			return;
+		}
+
+		freeChannels[baseStation]--;
+
+		while(duration > 0){
+			T = min(position*3.6/speed, duration);
+			nextStation = baseStation + direction;
+			Hold(T); //wait for next event
+
+			//release caller if he leaves the observed area
+			if(nextStation >= NR_STATIONS || nextStation < 0 || T == duration){
+				freeChannels[baseStation]++;
+				break;
+			}
+
+			if(freeChannels[nextStation] > 0){
+				//Handover
+				freeChannels[nextStation]--;
+				freeChannels[basestation]++;
+				baseStation = nextStation;
+			}else{
+				//no available channels -> call dropped
+				freeChannels[baseStation]++;
+				droppedCallsCounter++;
+				break;
+			}
+			duration = duration - T;
+		}
+
+		return;
+	}
+
+}
