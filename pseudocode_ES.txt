@@ -86,13 +86,20 @@ function HandOverEvent( float time,float speed, int station, float duration,
     nextStation  = calculateNextStation(station, direction);
     timeToSwitchLines = min(duration, ST_DIAM*3.6/(speed));
 
-    if(timeToSwitchLines > duration){
-      event.speed = speed;
-      event.station = nextStation;
-      event.duration = duration - timeToSwitchLines;
-      event.direction = direction;
+    if(timeToSwitchLines < duration){
+      if(not on the end){
+        event.speed = speed;
+        event.station = nextStation;
+        event.duration = duration - timeToSwitchLines;
+        event.direction = direction;
+        event.type = HANDOVER;
+      }else{
+        leaves the current line, do nothing
+      }
+
     }else{
       event.station = station;
+      event.type = TERMINATION;
     }
     event.time = time + timeToSwitchLines;
     eventList.add(e);

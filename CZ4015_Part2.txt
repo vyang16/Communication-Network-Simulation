@@ -1,0 +1,81 @@
+Process p generates call process according to the appropriate call arrival pattern, each time a Car process is called, it need to make a Car and start it. Each time one Car program terminates, it will signalize it to the main
+program p, so that p can keep track of how many Car processes are still running and when to end the simulation.
+
+//variables for computing the statistics
+blockedCallesCounter;
+droppedCallesCounter;
+totalCallsCounter;
+
+freeChannels[];
+
+class Car(){
+
+	var station; //follows probability distribution X
+	var direction; //equal probability in both directions
+	var speed; //follows probability distribution Y, remains the same during the call
+	var distanceToNextWall; //since the position is uniformly distributed across the base station and the direction is 50/50, the distanceToNextWall is also uniformly distributed across the base station
+	var duration; //follows probability distribution Z
+
+	function init(){
+		//generate all variables accoring to their distribution
+		station = nextIntOfDistributionZ;
+		direction = either 1 or -1 with equal posibility;
+		speed = nextValueOfDistributionY;
+		distanceToNextWall = stationLength*U(0,1);
+		duration = nextValueOfDistributionZ;
+	}
+
+	function start(){
+		init();
+		
+		if(freeChannels[station]==0){
+			//no channel free in init station
+			blockedCallesCounter++;
+			terminate();
+		}
+
+		occupy channel in current station;
+		//decide what to do next;
+		//compute next base station
+		//change base station or end here?, check duration
+		//can change to next station (on the border or free?) or dropp call
+
+		var T; //time to next event
+		var nextStation;
+
+		//handover while loop
+		while(as long duration greater than zero){
+			nextStation = station + direction;
+			timeToGetToBorder = distanceToNextWall*3.6/speed;
+			T = min(timeToGetToBorder, duration);
+			Hold(T);
+			freeChannels[station]++;
+			if(nextStation in observation area && duration > T){
+				//handover
+				if(freeChannels[nextStation]==0){
+					droppedCallesCounter++;
+					break; //jump to termination
+				}else{
+					freeChannels[nexStation]--;
+					station = nexStation;
+				}
+
+			}else{
+				//either duration is smaller than T -> call ends, do nothing, while loop ends in next run
+				//or the next station is not in the observation area ->call leaves, do nothing, need to exit loop
+				break;
+			}
+			duration = duration - T;
+		}
+
+		terminate();
+	}
+
+	function terminate(){
+		signalize to main program that this process has stopped
+		return;
+	}
+
+
+
+}
