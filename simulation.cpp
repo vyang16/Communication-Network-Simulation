@@ -4,10 +4,8 @@
 #include <queue>
 #include <vector>
 
-
 #include <Event.h>
-#include <CompareEvents.h>
-#include <BaseStation.h>
+
 
 using namespace std;
 
@@ -21,68 +19,113 @@ const int CALL_PER_SIM = 10;
 int countTotalCalls;
 int countDroppedCalls;
 int countBlockedCalls;
-double currentTime;
-vector<BaseStation> baseStation;
+int nextID;
+float currentTime;
+vector<int> baseStationList;
+priority_queue<Event, vector<Event>, CompareEvent> eventlist;
 
 void init(priority_queue<Event, vector<Event>, CompareEvent>& list){
   currentTime = 0;
   countTotalCalls = 0;
   countBlockedCalls = 0;
   countDroppedCalls = 0;
+  nextID = 1;
 
   for(int i = 0; i < NR_BS; i++){
-    baseStation.push_back(BaseStation(10, NR_HO));
+    baseStationList[i] = 0;
   }
 
-  Event firstEvent = Event(1, currentTime, countTotalCalls);
-  list.push(firstEvent);
+  Event firstEvent = Event(1, countTotalCalls, currentTime);
+  eventlist.push(firstEvent);
 }
 
+int calculateNextStation(int bs, bool direction){
+  if(direction){
+    return ++bs;
+  }else{
+    return --bs;
+  }
+}
 
-void generateCallInitiation(double now){
+void generateCallInitiation(int time){
+  Event e = Event(1, nextID, time);
+  eventlist.push(e);
+  nextID++;
+}
+void generateCallHandover(int id, float time, int bs, bool dir, float speed, float duration){
+  Event e = Event(2, id, time, bs, dir, speed, duration);
+  eventlist.push(e);
+}
+
+void generateCallTermination(int id, float time, int bs){
+  Event e = Event(3, id, time, bs);
+  eventlist.push(e);
+}
+
+void processCallInitiation(int id, float now){
   countTotalCalls++;
-  //Generate random VARIABLES
+  //Generate random VARIABLE for base station
+  int bs = rand()%21 + 1;
 
 
   //decide what the next event is: drop, handover or termination
-
-  //Generate next call initiation
+  if(baseStationList[bs] <= NR_HO){
+    //drop call
+    countDroppedCalls++;
+  }else{
+    //generate other random variables
+    bool dir = 1;
+    float position = 0.1;
+    float speed = 0.1;
+    float duration = 0.1;
+    baseStationList[bs]--;
+    //decide if termination or handover
+    int nextStation = calculateNextStation(bs, dir);
+    float timeToSwitchLines = (position*3.6)/speed;
+    if(timeToSwitchLines > duration || nextStation >= NR_BS || nextStation < 0){
+      generateCallTermination(id, now+duration, bs);
+    }else{
+      generateCallHandover(id, now+timeToSwitchLines, bs, dir, speed, duration - timeToSwitchLines);
+    }
+  }
+  //determine when the next call initiation happens and put it in the eventlist
+  float intArTime = 0.1;
+  generateCallInitiation(currentTime + intArTime);
 }
 
-void generateCallHandover(double now, int id, int baseStation, int dir, float speed, float duration){
+void processCallHandover(float now, int id, int baseStation, bool dir, float speed, float duration){
   //
 }
 
-void generateCallTermination(int baseStation){
-
+void processCallTermination(int baseStation){
+  baseStationList[baseStation]++;
 }
 
 void process(Event& event){
   currentTime = event.time;
   switch(event.type){
     case 1:
-      generateCallInitiation(currentTime);
+      processCallInitiation(event.id, currentTime);
       break;
     case 2:
-      generateCallHandover(currentTime, event.id, event.baseStation, event.dir, event.speed, event.duration);
+      processCallHandover(currentTime, event.id, event.baseStation, event.dir, event.speed, event.duration);
     case 3:
-      generateCallTermination(event.baseStation);
+      processCallTermination(event.baseStation);
       break;
     default:
       std::cout<<"Do not know this event type!\n";
   }
 }
 
-//Main function
+//Main functionprocessCallInitiation()
 int main(int argc, char *argv[]){
 
   //Create eventlist
-  priority_queue<Event, vector<Event>, CompareEvent> eventlist;
   init(eventlist); //insert first element, set all variables
   while(!eventlist.empty() && countTotalCalls < CALL_PER_SIM){
     Event e = eventlist.top();
     process(e);
     eventlist.pop();
   }
-
+  return 0;
 }

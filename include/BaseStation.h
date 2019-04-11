@@ -9,10 +9,8 @@ public:
   BaseStation(int _availableChannel, int _reservedChannel);
   ~BaseStation(){};
   bool hasFreeChannel();
-private:
   int availableChannel;
   int reservedChannel;
-
 };
 
 #endif

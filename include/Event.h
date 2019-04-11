@@ -3,13 +3,15 @@
 
 class Event{
 public:
-    Event(int _type, int _id, float _time);
+    Event(int _type, int _id, float _time); //for Call INITIATION
+    Event(int _type, int _id, float _time, int _baseStation, bool _dir, float _speed, float _duration); //for Call HANDOVER
+    Event(int _type, int _id, float _time, int _baseStation); //for Call TERMINATION
     ~Event(){};
     int type; //1 for initiation, 2 for handover, 3 for termination
-    float time; //when it happens
     int id;
+    float time; //when it happens
     int baseStation;
-    int dir;
+    bool dir;
     float speed;
     float duration;
     bool operator <(const Event& e);
