@@ -93,8 +93,25 @@ void processCallInitiation(int id, float now){
   generateCallInitiation(currentTime + intArTime);
 }
 
-void processCallHandover(float now, int id, int baseStation, bool dir, float speed, float duration){
-  //
+void processCallHandover(int id, float now, int bs, bool dir, float speed, float duration){
+  //release previous stations
+  baseStationList[bs]++;
+  bs = calculateNextStation(bs, dir);
+  if(baseStationList[bs] <= NR_HO){
+    countBlockedCalls++;
+  }else{
+    baseStationList[bs]--;
+    int nextStation = calculateNextStation(bs, dir);
+    int timeToSwitchLines = (CH_WIDTH*3.6)/speed;
+    if(timeToSwitchLines < duration){
+      if(nextStation < NR_BS && nextStation >= 0){
+        generateCallHandover(id, now+timeToSwitchLines, bs, dir, speed, duration - timeToSwitchLines);
+      }
+      //else leaves observed area
+    }else{
+      generateCallTermination(id, now+duration, bs);
+    }
+  }
 }
 
 void processCallTermination(int baseStation){
@@ -108,7 +125,7 @@ void process(Event& event){
       processCallInitiation(event.id, currentTime);
       break;
     case 2:
-      processCallHandover(currentTime, event.id, event.baseStation, event.dir, event.speed, event.duration);
+      processCallHandover(event.id, currentTime, event.baseStation, event.dir, event.speed, event.duration);
     case 3:
       processCallTermination(event.baseStation);
       break;
