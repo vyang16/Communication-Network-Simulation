@@ -9,12 +9,11 @@
 #include <Random.h>
 
 using namespace std;
-//debugging
-vector<int> wuvec;
 
 //output statistics
 vector<int> droppedCallsVector;
 vector<int> blockedCallsVector;
+//vector<int> totalCallsVector; //checked, is equal to CALL_PER_SIM
 
 //System Properties
 const double WIDTH = 40000.0f; //observed area
@@ -23,26 +22,26 @@ const int NR_CH = 10; //number of channel per basestation
 const int NR_BS = 20; // number of basestation
 const int NR_HO = 0; //number of channels reserved for handover
 const int WARMUP = 2000;
-const int CALL_PER_SIM = 10000 + WARMUP;
-const int NR_SIMULATION = 100;
+const int CALL_PER_SIM = 10000;
+const int NR_SIMULATION = 1000;
 //Program variables
 int countTotalCalls;
 int countDroppedCalls;
 int countBlockedCalls;
 int nextID;
 double currentTime;
-vector<int> baseStationList;
+vector<int> baseStationList = vector<int>(20, NR_CH);
 priority_queue<Event, vector<Event>, CompareEvent> eventlist;
 
 void init(){
+  eventlist = priority_queue<Event, vector<Event>, CompareEvent>();
   currentTime = 0;
   countTotalCalls = 0;
   countBlockedCalls = 0;
   countDroppedCalls = 0;
   nextID = 1;
-
   for(int i = 0; i < NR_BS; i++){
-    baseStationList.push_back(NR_CH);
+    baseStationList[i] = NR_CH;
   }
 }
 
@@ -58,6 +57,7 @@ void generateCallInitiation(double time){
   //generate random variables
   int bs = getRandomBaseStation();
   bool dir = getRandomBool();
+  //with position I mean the distance to the next boarder the car is heading
   double position = getRandomPosition();
   double speed = getRandomSpeed();
   double duration = getRandomDuration();
@@ -78,12 +78,9 @@ void generateCallTermination(int id, double time, int bs, bool dir, double speed
 }
 
 void processCallInitiation(const Event& e){
-  Event nextEvent = e;
+  Event nextEvent = e; //Next Event to push in the eventlist
   //one call is processed.
   countTotalCalls++;
-
-
-
   //decide what the next event is: drop, handover or termination
   if(baseStationList[nextEvent.baseStation] <= NR_HO){
     //drop call
@@ -167,21 +164,8 @@ void process(const Event& event){
       break;
   }
 }
-void printVector(const vector<int>& path){
-  int result = 0;
-  for (std::vector<int>::const_iterator i = path.begin(); i != path.end(); ++i){
-    result += *i;
-  }
-  wuvec.push_back(result);
-    //cout<<"\n\n";
-    //cout << *i << ' ';
-    // if(*i < 5){
-    //   cout <<*i<<" ";
-    //   cout<<"\n\n";
-    // }
 
-}
-
+//wi
 void writeVector(const vector<int>& vec, string filename){
   ofstream myfile;
   string path = "/home/viviane/Programming/Communication-Network-Simulation/log/";
@@ -201,7 +185,7 @@ void resetCounter(){
 
 void runSimulation(){
   init();
-
+  //cout<<eventlist.size()<<" "<<countTotalCalls<<" "<<countBlockedCalls<<" "<<countDroppedCalls<<" "<<baseStationList[2]<<endl;
   generateCallInitiation(currentTime);
   int counter = 0;
   while(!eventlist.empty() && countTotalCalls < CALL_PER_SIM){
@@ -216,18 +200,20 @@ void runSimulation(){
     //printVector(baseStationList);
     //cout<<"Event ID: "<<e.id<< " Event Type: "<<e.type<<" Eventtime: "<<e.time<<endl;
   }
-  cout<<countTotalCalls<<" "<<countBlockedCalls<<" "<<countDroppedCalls<<endl;
+
   blockedCallsVector.push_back(countBlockedCalls);
   droppedCallsVector.push_back(countDroppedCalls);
+  //totalCallsVector.push_back(countTotalCalls);
 }
 
 //Main functionprocessCallInitiation()
 int main(int argc, char *argv[]){
+
   for(int i = 0; i < NR_SIMULATION; i++){
     runSimulation();
-    init();
   }
   writeVector(blockedCallsVector, "blockedCalls.csv");
   writeVector(droppedCallsVector, "droppedCalls.csv");
+  //writeVector(totalCallsVector, "totalCalls.csv");
   return 0;
 }
