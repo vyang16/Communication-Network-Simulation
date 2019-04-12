@@ -3,7 +3,6 @@
 #include <string>
 #include <queue>
 #include <vector>
-#include <fstream>
 
 #include <Event.h>
 #include <Random.h>
@@ -16,7 +15,7 @@ const double CH_WIDTH = 2000.0f; //width of a basestation
 const int NR_CH = 10; //number of channel per basestation
 const int NR_BS = 20; // number of basestation
 const int NR_HO = 0; //number of channels reserved for handover
-const int CALL_PER_SIM = 100000;
+const int CALL_PER_SIM = 10;
 
 //Program variables
 int countTotalCalls;
@@ -56,7 +55,7 @@ void generateCallInitiation(double time){
   double duration = getRandomDuration();
   Event e = Event(1, nextID, time, bs, dir, speed, duration);
   eventlist.push(e);
-  //cout<<"INITIATION ID" <<nextID<<" time is " <<time<<endl;
+  cout<<"INITIATION ID" <<nextID<<" time is " <<time<<endl;
   nextID++;
 }
 
@@ -72,15 +71,16 @@ void generateCallTermination(int id, double time, int bs, bool dir, double speed
 
 void processCallInitiation(const Event& e){
   Event nextEvent = e;
+  //determine when the next call initiation happens and put it in the eventlist
+  double intArTime = getRandomIntArTime();
+  generateCallInitiation(nextEvent.time + intArTime);
   //one call is processed.
   countTotalCalls++;
-
-
 
   //decide what the next event is: drop, handover or termination
   if(baseStationList[nextEvent.baseStation] <= NR_HO){
     //drop call
-    countBlockedCalls++;
+    countDroppedCalls++;
   }else{
     baseStationList[nextEvent.baseStation]--;
     //decide if termination or handover
@@ -99,9 +99,6 @@ void processCallInitiation(const Event& e){
     }
     eventlist.push(nextEvent);
   }
-  //determine when the next call initiation happens and put it in the eventlist
-  double intArTime = getRandomIntArTime();
-  generateCallInitiation(e.time + intArTime);
 
 }
 
@@ -111,7 +108,7 @@ void processCallHandover(const Event& e){
   baseStationList[nextEvent.baseStation]++;
   nextEvent.baseStation = calculateNextStation(nextEvent.baseStation, e.dir);
   if(baseStationList[nextEvent.baseStation] <= NR_HO){
-    countDroppedCalls++;
+    countBlockedCalls++;
   }else{
     baseStationList[nextEvent.baseStation]--;
     int nextStation = calculateNextStation(nextEvent.baseStation, e.dir); //another handover?
@@ -141,55 +138,39 @@ void processCallTermination(const Event& e){
 }
 
 void process(const Event& event){
+  if(currentTime > event.time){
+    //cout<<"TIME ERROR"<<endl;
+  }
+
   currentTime = event.time;
   switch(event.type){
     case 1:
       processCallInitiation(event);
-      cout<<"INITIATION EVENT ID "<<event.id<<" EVENT TIME "<<event.time<<endl;
       break;
     case 2:
       processCallHandover(event);
-      cout<<"HANDOVER EVENT ID "<<event.id<<" EVENT TIME "<<event.time<<endl;
       break;
     case 3:
       processCallTermination(event);
-      cout<<"TERMINATION EVENT ID "<<event.id<<" FINISHED AT "<<event.time<<endl;
       break;
     default:
       std::cout<<"Do not know this event type!\n";
       break;
   }
 }
-void printVector(const vector<int>& path){
-  for (std::vector<int>::const_iterator i = path.begin(); i != path.end(); ++i)
-    cout << *i << ' ';
-  cout<<"\n\n";
-    // if(*i < 5){
-    //   cout <<*i<<" ";
-    //   cout<<"\n\n";
-    // }
 
-}
 //Main functionprocessCallInitiation()
 int main(int argc, char *argv[]){
   init();
-  // for(int i = 0; i<10; i++){
-  //   eventlist.push(Event(1, i, 0.1*i, 1, true, 0.3, 0.2));
-  // }
-  generateCallInitiation(currentTime);
 
-  while(!eventlist.empty() && countTotalCalls < CALL_PER_SIM){
-    if(eventlist.empty()){
-      cout<<"empty"<<endl;
-      break;
-    }
+  eventlist.push(Event(1, 1,0.1, 1, true, 0.32, 32.4));
+  eventlist.push(Event(1, 2, 0.2, 1, true, 0.32, 32.4));
+  eventlist.push(Event(2, 1, 0.4, 2, true, 0.32, 32.4));
+
+  while(!eventlist.empty()){
     Event e = eventlist.top();
     eventlist.pop();
-    process(e);
-    //printVector(baseStationList);
-    //cout<<"Event ID: "<<e.id<< " Event Type: "<<e.type<<" Eventtime: "<<e.time<<endl;
+    cout<<"Event ID: "<<e.id<< " Event Type: "<<e.type<<" currentTime: "<<currentTime<<endl;
   }
-  cout<<"Number Blocked Calls: "<<countBlockedCalls<<endl;
-  cout<<"Number Dropped Calls: "<<countDroppedCalls<<endl;
   return 0;
 }

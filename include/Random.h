@@ -3,6 +3,7 @@
 #include <math.h>
 
 //Input anaylsis constants
+//const double BETA_INTARTIME = 0.00011;
 const double BETA_INTARTIME = 1.3698169264765276;
 const double BETA_CALLDURATION = 109.8359007387477;
 const double MU_VEL = 120.07209801685764;
