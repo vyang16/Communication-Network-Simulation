@@ -9,6 +9,12 @@
 #include <Random.h>
 
 using namespace std;
+//debugging
+vector<int> wuvec;
+
+//output statistics
+vector<int> droppedCallsVector;
+vector<int> blockedCallsVector;
 
 //System Properties
 const double WIDTH = 40000.0f; //observed area
@@ -16,8 +22,9 @@ const double CH_WIDTH = 2000.0f; //width of a basestation
 const int NR_CH = 10; //number of channel per basestation
 const int NR_BS = 20; // number of basestation
 const int NR_HO = 0; //number of channels reserved for handover
-const int CALL_PER_SIM = 100000;
-
+const int WARMUP = 2000;
+const int CALL_PER_SIM = 10000 + WARMUP;
+const int NR_SIMULATION = 100;
 //Program variables
 int countTotalCalls;
 int countDroppedCalls;
@@ -110,7 +117,7 @@ void processCallHandover(const Event& e){
   Event nextEvent = e;
   baseStationList[nextEvent.baseStation]++;
   nextEvent.baseStation = calculateNextStation(nextEvent.baseStation, e.dir);
-  if(baseStationList[nextEvent.baseStation] <= NR_HO){
+  if(baseStationList[nextEvent.baseStation] <= 0){
     countDroppedCalls++;
   }else{
     baseStationList[nextEvent.baseStation]--;
@@ -145,15 +152,15 @@ void process(const Event& event){
   switch(event.type){
     case 1:
       processCallInitiation(event);
-      cout<<"INITIATION EVENT ID "<<event.id<<" EVENT TIME "<<event.time<<endl;
+      //cout<<"INITIATION EVENT ID "<<event.id<<" EVENT TIME "<<event.time<<endl;
       break;
     case 2:
       processCallHandover(event);
-      cout<<"HANDOVER EVENT ID "<<event.id<<" EVENT TIME "<<event.time<<endl;
+      //cout<<"HANDOVER EVENT ID "<<event.id<<" EVENT TIME "<<event.time<<endl;
       break;
     case 3:
       processCallTermination(event);
-      cout<<"TERMINATION EVENT ID "<<event.id<<" FINISHED AT "<<event.time<<endl;
+      //cout<<"TERMINATION EVENT ID "<<event.id<<" FINISHED AT "<<event.time<<endl;
       break;
     default:
       std::cout<<"Do not know this event type!\n";
@@ -161,35 +168,66 @@ void process(const Event& event){
   }
 }
 void printVector(const vector<int>& path){
-  for (std::vector<int>::const_iterator i = path.begin(); i != path.end(); ++i)
-    cout << *i << ' ';
-  cout<<"\n\n";
+  int result = 0;
+  for (std::vector<int>::const_iterator i = path.begin(); i != path.end(); ++i){
+    result += *i;
+  }
+  wuvec.push_back(result);
+    //cout<<"\n\n";
+    //cout << *i << ' ';
     // if(*i < 5){
     //   cout <<*i<<" ";
     //   cout<<"\n\n";
     // }
 
 }
-//Main functionprocessCallInitiation()
-int main(int argc, char *argv[]){
-  init();
-  // for(int i = 0; i<10; i++){
-  //   eventlist.push(Event(1, i, 0.1*i, 1, true, 0.3, 0.2));
-  // }
-  generateCallInitiation(currentTime);
 
+void writeVector(const vector<int>& vec, string filename){
+  ofstream myfile;
+  string path = "/home/viviane/Programming/Communication-Network-Simulation/log/";
+  path.append(filename);
+  myfile.open(path.c_str());
+  for(std::vector<int>::const_iterator i = vec.begin(); i != vec.end(); ++i){
+    myfile<<*i<<",";
+  }
+  myfile.close();
+}
+
+void resetCounter(){
+  countTotalCalls = 0;
+  countBlockedCalls = 0;
+  countDroppedCalls = 0;
+}
+
+void runSimulation(){
+  init();
+
+  generateCallInitiation(currentTime);
+  int counter = 0;
   while(!eventlist.empty() && countTotalCalls < CALL_PER_SIM){
-    if(eventlist.empty()){
-      cout<<"empty"<<endl;
-      break;
+    if(counter == WARMUP){
+      //cout<<"Warmup reached"<<endl;
+      resetCounter();
     }
     Event e = eventlist.top();
     eventlist.pop();
     process(e);
+    counter++;
     //printVector(baseStationList);
     //cout<<"Event ID: "<<e.id<< " Event Type: "<<e.type<<" Eventtime: "<<e.time<<endl;
   }
-  cout<<"Number Blocked Calls: "<<countBlockedCalls<<endl;
-  cout<<"Number Dropped Calls: "<<countDroppedCalls<<endl;
+  cout<<countTotalCalls<<" "<<countBlockedCalls<<" "<<countDroppedCalls<<endl;
+  blockedCallsVector.push_back(countBlockedCalls);
+  droppedCallsVector.push_back(countDroppedCalls);
+}
+
+//Main functionprocessCallInitiation()
+int main(int argc, char *argv[]){
+  for(int i = 0; i < NR_SIMULATION; i++){
+    runSimulation();
+    init();
+  }
+  writeVector(blockedCallsVector, "blockedCalls.csv");
+  writeVector(droppedCallsVector, "droppedCalls.csv");
   return 0;
 }
